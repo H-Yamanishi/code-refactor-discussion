@@ -1,67 +1,51 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
-
-
-get_ipython().run_line_magic('matplotlib', 'inline')
+#get_ipython().run_line_magic('matplotlib', 'inline')
 
 import keras.datasets
 import keras.utils
 import matplotlib.pyplot as plt
 import numpy as np
+import keras.layers
+import keras.layers.core
+import keras.models
 
-plt.style.use('ggplot')
+#plt.style.use('ggplot')
 
 
-# In[ ]:
+# 読み込みデータ件数
+X_A = 60000
+Y_A = 10000
 
+# ピクセル（28×28）
+NEW_PIX = 784
 
 # y_trainが正解タグデータ
 (X_train, y_train), (X_test, y_test) = keras.datasets.mnist.load_data()
 
 
-# In[ ]:
-
-
 # データの整形&正規化
-X_train = X_train.reshape(60000,784) / 255
-X_test = X_test.reshape(10000, 784) / 255
-
-print(X_train.shape)
-print(X_test.shape)
+X_train = X_train.reshape(X_A, NEW_PIX) / 255
+X_test = X_test.reshape(Y_A, NEW_PIX) / 255
 
 
-# In[ ]:
+#idx = 0
+#size = 28
 
+#a, b = np.meshgrid(range(size), range(size))
+#c = X_train[idx].reshape(size, size)
+#c = c[::-1,:]
 
-# 1行のデータが28*28の1つの数字を表している
-# データは0-1までの少数で表現されており、これは濃淡の程度を表している
-X_train[0][200:210]
+#print('描かれている数字: {}'.format(y_train[idx]))
 
-
-# In[ ]:
-
-
-idx = 0
-size = 28
-
-a, b = np.meshgrid(range(size), range(size))
-c = X_train[idx].reshape(size, size)
-c = c[::-1,:]
-
-print('描かれている数字: {}'.format(y_train[idx]))
-
-plt.figure(figsize=(2.5, 2.5))
-plt.xlim(0, 27)
-plt.ylim(0, 27)
-plt.tick_params(labelbottom="off")
-plt.tick_params(labelleft="off")
-plt.pcolor(a, b, c)
-plt.gray()
-
-
-# In[ ]:
+#plt.figure(figsize=(2.5, 2.5))
+#plt.xlim(0, 27)
+#plt.ylim(0, 27)
+#plt.tick_params(labelbottom="off")
+#plt.tick_params(labelleft="off")
+#plt.pcolor(a, b, c)
+#plt.gray()
 
 
 # ダミーコーディング
@@ -69,121 +53,72 @@ y_train = keras.utils.np_utils.to_categorical(y_train)
 y_test = keras.utils.np_utils.to_categorical(y_test)
 
 
-# In[ ]:
-
-
-#  arrayに1が立っている部分がその数字である、というふうに表示させている。
-# 今回の場合は0,1,2,3,4,5,6,7,8,9 のうち5を選択しているので、6番目にフラグが立っている
-# というようにもともと数値ではないものを数値化するのがダミーコーディング
-y_train[0]
-
-
-# In[ ]:
-
-
-# 1ノードにくるデータは重み付けされている。それを全て集約して、ノード内で次元圧縮する（活性化関数を使って）
-
-
-# In[ ]:
-
-
 # DLのモデル作成
-import keras.layers
-import keras.layers.core
-import keras.models
+# Dense = 層 activation = 活性化関数
+def modeling(hidd_batch_size,hidd_act,hidd_shape,drop,out_batch_size,out_act,com_loss,com_optimizer,com_metrics):
+    model = keras.models.Sequential()
+    model.add(keras.layers.Dense(hidd_batch_size, activation = hidd_act, input_shape=(hidd_shape,)))
+    model.add(keras.layers.core.Dropout(drop))
+    model.add(keras.layers.Dense(out_batch_size, activation = out_act))
+    model.compile(loss=com_loss, optimizer=com_optimizer, metrics=[com_metrics])
+    return model
 
+def score(model,fit_batch_size,fit_epochs):
+    model.fit(X_train, y_train, batch_size=fit_batch_size, verbose=2, epochs=fit_epochs)
+    score = model.evaluate(X_test, y_test, verbose=2)
+    return score
 
-# In[ ]:
-
-
-model = keras.models.Sequential()
-# Dense = 層 activation = 活性化関数 
 # 隠れ層
-model.add(keras.layers.Dense(512, activation='sigmoid', input_shape=(784,)))
+hidd_batch_size = 512
+hidd_act = 'sigmoid'
+hidd_shape = 784
+drop = 1
+
 # 出力層(いくつかのカテゴライズを行う場合はsoftmaxと使う)
-model.add(keras.layers.Dense(10, activation='softmax'))
+out_batch_size = 10
+out_act = 'softmax'
 
+# コンパイル
+com_loss = 'categorical_crossentropy'
+com_optimizer = 'sgd'
+com_metrics = 'accuracy'
 
-# In[ ]:
+# モデルfit
+fit_batch_size = 200
+fit_epochs = 10
 
+score1 = score(modeling(hidd_batch_size,hidd_act,hidd_shape,drop,
+                        out_batch_size,out_act,
+                        com_loss,com_optimizer,com_metrics),
+               fit_batch_size,fit_epochs)[1]
 
-model.summary()
+# 活性化関数の変更 sigmoid → relu
+hidd_act_new = 'relu'
 
+score2 = score(modeling(hidd_batch_size,hidd_act_new,hidd_shape,drop,
+                        out_batch_size,out_act,
+                        com_loss,com_optimizer,com_metrics),
+               fit_batch_size,fit_epochs)[1]
 
-# In[ ]:
-
-
-model.compile(loss='categorical_crossentropy', optimizer='sgd', metrics=['accuracy'])
-
-
-# In[ ]:
-
-
-model.fit(X_train, y_train, batch_size=200, verbose=1, epochs=10)
-
-
-# In[ ]:
-
-
-score = model.evaluate(X_test, y_test, verbose=1)
-
-
-# In[ ]:
-
-
-score[1]
-
-
-# In[ ]:
-
-
-# 活性化関数の変更
-model = keras.models.Sequential()
-model.add(keras.layers.Dense(512, activation='relu', input_shape=(784,)))
-model.add(keras.layers.Dense(10, activation='softmax'))
-
-# 活性化関数リスト
-# https://keras.io/ja/activations/
-
-model.compile(loss='categorical_crossentropy', optimizer='sgd', metrics=['accuracy'])
-model.fit(X_train, y_train, batch_size=200, verbose=1, epochs=10)
-score = model.evaluate(X_test, y_test, verbose=1)
-#score[0]はロス
-score[1]
-
-
-# In[ ]:
-
-
-# 最適化関数の変更
+# 最適化関数の変更 sgd → adm
 # https://keras.io/ja/optimizers/
-model = keras.models.Sequential()
-model.add(keras.layers.Dense(512, activation='relu', input_shape=(784,)))
-model.add(keras.layers.Dense(10, activation='softmax'))
+com_optimizer_new = 'adam'
 
-model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-model.fit(X_train, y_train, batch_size=200, verbose=1, epochs=10)
-score = model.evaluate(X_test, y_test, verbose=1)
-score[1]
+score3 = score(modeling(hidd_batch_size,hidd_act_new,hidd_shape,drop,
+                        out_batch_size,out_act,
+                        com_loss,com_optimizer_new,com_metrics),
+               fit_batch_size,fit_epochs)[1]
 
+# Dropout(汎化性能up/過学習防止)  1 → 0.2
+drop_new = 0.2
 
-# In[ ]:
-
-
-# Dropout(汎化性能up/過学習防止)
-model = keras.models.Sequential()
-model.add(keras.layers.Dense(512, activation='relu', input_shape=(784,)))
-model.add(keras.layers.core.Dropout(0.2))
-model.add(keras.layers.Dense(10, activation='softmax'))
-
-model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-model.fit(X_train, y_train, batch_size=200, verbose=1, epochs=10)
-score = model.evaluate(X_test, y_test, verbose=1)
-score[1]
+score4 = score(modeling(hidd_batch_size,hidd_act_new,hidd_shape,drop_new,
+                        out_batch_size,out_act,
+                        com_loss,com_optimizer_new,com_metrics),
+               fit_batch_size,fit_epochs)[1]
 
 
-# In[ ]:
-
-
-
-
+print("活性関数がシグモイド関数：" + str(score1)+
+      "\n活性関数がLelu関数："+str(score2)+
+      "\n最適化関数をadm関数：" + str(score3)+
+      "\nドロップを設定：" +str(score4))
